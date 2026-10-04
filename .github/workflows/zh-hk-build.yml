@@ -1,0 +1,76 @@
+name: zh-HK build
+
+on:
+  push:
+    branches:
+      - ci/zh-hk-build
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build dependencies
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;28.2.13676358" \
+            "cmake;3.22.1"
+
+      # Give the test build a separate package name so it can coexist
+      # with the official PlayTranslate already installed on the phone.
+      - name: Create side-by-side test package
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("app/build.gradle.kts")
+          s = p.read_text()
+
+          needle = """    buildTypes {
+              release {"""
+
+          replacement = """    buildTypes {
+              debug {
+                  applicationIdSuffix = ".zhhktest"
+                  versionNameSuffix = "-zhhktest"
+              }
+              release {"""
+
+          if needle not in s:
+              raise SystemExit("Could not locate buildTypes block")
+
+          p.write_text(s.replace(needle, replacement, 1))
+          PY
+
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: playtranslate-zh-hk-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

@@ -47,15 +47,14 @@ jobs:
           p = Path("app/build.gradle.kts")
           s = p.read_text()
 
-          needle = """    buildTypes {
-              release {"""
-
-          replacement = """    buildTypes {
-              debug {
-                  applicationIdSuffix = ".zhhktest"
-                  versionNameSuffix = "-zhhktest"
-              }
-              release {"""
+          needle = "    buildTypes {\n"
+          replacement = (
+              "    buildTypes {\n"
+              "        debug {\n"
+              "            applicationIdSuffix = \".zhhktest\"\n"
+              "            versionNameSuffix = \"-zhhktest\"\n"
+              "        }\n"
+          )
 
           if needle not in s:
               raise SystemExit("Could not locate buildTypes block")
